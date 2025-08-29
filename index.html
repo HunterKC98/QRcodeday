@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QR日期檢查工具</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        body { font-family: 'Noto Sans TC', sans-serif; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); min-height:100vh; display:flex; justify-content:center; align-items:center; padding:16px; line-height:1.6; }
+        .container { width:100%; max-width:100%; background: rgba(255,255,255,0.95); border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,0.2); overflow:hidden; }
+        .header { background: linear-gradient(90deg, #2575fc 0%, #6a11cb 100%); color:white; text-align:center; padding:24px 20px; position:relative; }
+        .header h1 { font-weight:700; font-size:24px; margin-bottom:8px; }
+        .header p { font-weight:300; opacity:0.9; font-size:16px; }
+        .content { padding:24px 20px; }
+        .input-group { margin-bottom:24px; }
+        .input-group label { display:block; margin-bottom:12px; font-weight:500; color:#333; font-size:18px; }
+        .input-wrapper { position:relative; display:flex; align-items:center; }
+        .input-wrapper i { position:absolute; left:18px; color:#6a11cb; font-size:22px; z-index:1; }
+        .input-wrapper input { width:100%; padding:18px 18px 18px 56px; border:2px solid #ddd; border-radius:14px; font-size:18px; transition:all 0.3s ease; background:#fff; }
+        .input-wrapper input:focus { border-color:#6a11cb; outline:none; box-shadow:0 0 0 3px rgba(106,17,203,0.2); }
+        .input-wrapper input::placeholder { color:#aaa; font-size:16px; }
+        .camera-btn { width:100%; padding:16px; background: linear-gradient(90deg, #4CAF50 0%, #2E7D32 100%); border:none; border-radius:14px; color:white; font-size:18px; font-weight:500; cursor:pointer; transition:all 0.3s ease; box-shadow:0 6px 12px rgba(76,175,80,0.4); touch-action:manipulation; margin-bottom:16px; display:flex; align-items:center; justify-content:center; gap:10px; }
+        .camera-btn:active { transform:scale(0.98); box-shadow:0 4px 8px rgba(76,175,80,0.6); }
+        button { width:100%; padding:20px; background: linear-gradient(90deg, #2575fc 0%, #6a11cb 100%); border:none; border-radius:14px; color:white; font-size:20px; font-weight:500; cursor:pointer; transition:all 0.3s ease; box-shadow:0 6px 12px rgba(106,17,203,0.4); touch-action:manipulation; }
+        button:active { transform:scale(0.98); box-shadow:0 4px 8px rgba(106,17,203,0.6); }
+        .result { margin-top:28px; text-align:center; padding:20px; border-radius:14px; background:#f8f9fa; display:none; }
+        .status { font-size:24px; font-weight:700; margin-bottom:12px; }
+        .days { font-size:20px; color:#555; }
+        .expired { color:#e74c3c; }
+        .today { color:#f39c12; }
+        .future { color:#27ae60; }
+        .loader { display:none; text-align:center; margin-top:24px; }
+        .loader i { font-size:36px; color:#6a11cb; animation:spin 1s linear infinite; }
+        @keyframes spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }
+        .error { color:#e74c3c; text-align:center; margin-top:16px; display:none; font-size:16px; padding:12px; background:#ffecec; border-radius:10px; border-left:4px solid #e74c3c; }
+        .camera-container { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); z-index:100; flex-direction:column; justify-content:center; align-items:center; }
+        #qr-reader { width:100%; max-width:500px; }
+        .camera-controls { margin-top:20px; display:flex; gap:15px; }
+        .camera-controls button { width:auto; padding:12px 24px; font-size:16px; }
+        .close-camera { background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%) !important; color:white; border:none; border-radius:14px; cursor:pointer; }
+        @media (max-width:380px) { .header h1 { font-size:22px; } .header p { font-size:15px; } .input-group label { font-size:17px; } .input-wrapper input { padding:16px 16px 16px 52px; font-size:16px; } button,.camera-btn { padding:18px; font-size:18px; } }
+        @media (min-width:768px) { .container { max-width:450px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-qrcode"></i> QR日期檢查</h1>
+            <p>輸入QR碼中的日期資訊，檢查有效期狀態</p>
+        </div>
+        <div class="content">
+            <div class="input-group">
+                <label for="qr-input">QR碼日期 (YYYYMMDD格式):</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-calendar-alt"></i>
+                    <input type="text" id="qr-input" placeholder="例如: 20230929" maxlength="8" inputmode="numeric" pattern="[0-9]*">
+                </div>
+            </div>
+            <button class="camera-btn" id="camera-btn"><i class="fas fa-camera"></i> 使用相機掃描</button>
+            <button id="check-btn"><i class="fas fa-check-circle"></i> 檢查日期</button>
+            <div class="loader" id="loader"><i class="fas fa-spinner"></i></div>
+            <div class="error" id="error-message"></div>
+            <div class="result" id="result">
+                <div class="status" id="status-text"></div>
+                <div class="days" id="days-text"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="camera-container" id="camera-container">
+        <div id="qr-reader"></div>
+        <div class="camera-controls">
+            <button class="close-camera" id="close-camera"><i class="fas fa-times"></i> 關閉</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const qrInput = document.getElementById('qr-input');
+            const checkBtn = document.getElementById('check-btn');
+            const cameraBtn = document.getElementById('camera-btn');
+            const resultDiv = document.getElementById('result');
+            const statusText = document.getElementById('status-text');
+            const daysText = document.getElementById('days-text');
+            const loader = document.getElementById('loader');
+            const errorMessage = document.getElementById('error-message');
+            const cameraContainer = document.getElementById('camera-container');
+            const closeCamera = document.getElementById('close-camera');
+            let html5QrCode = null;
+
+            // 日期检查
+            checkBtn.addEventListener('click', function() {
+                const qrValue = qrInput.value.trim();
+                resultDiv.style.display = 'none';
+                errorMessage.style.display = 'none';
+
+                if (!qrValue) { showError('請輸入QR碼日期'); return; }
+                if (!/^\d{8}$/.test(qrValue)) { showError('日期格式應為8位數字，例如: 20230929'); return; }
+
+                loader.style.display = 'block';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    try {
+                        const year = parseInt(qrValue.substring(0,4));
+                        const month = parseInt(qrValue.substring(4,6)) - 1;
+                        const day = parseInt(qrValue.substring(6,8));
+                        const qrDate = new Date(year, month, day);
+                        if (qrDate.getFullYear()!==year || qrDate.getMonth()!==month || qrDate.getDate()!==day) {
+                            throw new Error("無效日期");
+                        }
+                        const today = new Date(); today.setHours(0,0,0,0);
+                        const diffTime = qrDate.getTime() - today.getTime();
+                        const diffDays = Math.ceil(diffTime / (1000*60*60*24));
+                        let status, statusClass;
+                        if(diffDays<0){ status="已過期"; statusClass="expired"; }
+                        else if(diffDays===0){ status="今天到期"; statusClass="today"; }
+                        else{ status="尚未過期"; statusClass="future"; }
+                        statusText.textContent = status;
+                        statusText.className = `status ${statusClass}`;
+                        daysText.textContent = `剩餘天數: ${diffDays}天`;
+                        resultDiv.style.display = 'block';
+                    } catch(e){ showError('無效的日期: ' + e.message); }
+                }, 500);
+            });
+
+            function showError(msg){ errorMessage.textContent=msg; errorMessage.style.display='block'; }
+
+            qrInput.addEventListener('input', function(){ this.value=this.value.replace(/[^0-9]/g,''); });
+
+            // 打开相机扫描
+            cameraBtn.addEventListener('click', function(){
+                cameraContainer.style.display = 'flex';
+                html5QrCode = new Html5Qrcode("qr-reader");
+                Html5Qrcode.getCameras().then(cameras=>{
+                    if(cameras && cameras.length){
+                        html5QrCode.start(
+                            cameras[0].id,
+                            { fps:10, qrbox:250 },
+                            qrMessage => {
+                                qrInput.value = qrMessage.trim();
+                                checkBtn.click();
+                                closeCameraView();
+                            },
+                            err => { console.log("掃描錯誤:", err); }
+                        );
+                    }
+                }).catch(err => showError('無法訪問相機: ' + err));
+            });
+
+            closeCamera.addEventListener('click', closeCameraView);
+
+            function closeCameraView(){
+                cameraContainer.style.display = 'none';
+                if(html5QrCode){
+                    html5QrCode.stop().then(()=>{
+                        html5QrCode.clear();
+                        html5QrCode = null;
+                    }).catch(err => console.log(err));
+                }
+            }
+
+            document.addEventListener('touchstart', function(e){
+                if(e.target!==qrInput){ qrInput.blur(); }
+            });
+        });
+    </script>
+</body>
+</html>
